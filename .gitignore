@@ -1,6 +1,7 @@
 # Environment
 .env
 *.env.local
+scripts/.env
 
 # Python
 __pycache__/
@@ -14,7 +15,8 @@ venv/
 
 # Logs
 *.log
-bot.log
+scripts/bot.log
+scripts/bot.pid
 
 # IDE
 .idea/
@@ -25,3 +27,6 @@ bot.log
 # OS
 .DS_Store
 Thumbs.db
+
+# Skill packaging
+*.skill
