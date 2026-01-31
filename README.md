@@ -1,138 +1,38 @@
-# Emoji Choice
+# Noti-Bot: Reaction Forwarder
 
-Discord reaction-based selection handler for [OpenClaw](https://github.com/openclaw/openclaw).
+Discord reaction을 감지하여 메시지로 전달하는 봇.
+OpenClaw가 reaction을 직접 턴 트리거로 인식하지 못하는 문제를 해결.
 
-Bridges the gap between Discord reactions and OpenClaw agent turns by forwarding emoji selections as messages.
+## 설정
 
-## 🎯 Problem
-
-OpenClaw receives Discord reaction events as system messages, but these don't trigger agent turns. Users clicking emoji buttons get no response.
-
-## ✨ Solution
-
-Emoji Choice bot detects reactions and forwards them as regular messages that mention OpenClaw, triggering a proper agent turn.
-
-```
-User clicks 2️⃣ → Emoji Choice detects → "@OpenClaw [Selection] user chose option 2" → OpenClaw responds
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.8+
-- A separate Discord bot token (not your OpenClaw token)
-- OpenClaw with `allowBots: true` in config
-
-### Installation
-
-```bash
-git clone https://github.com/yourusername/emoji-choice.git
-cd emoji-choice
-pip install -r requirements.txt
-cp .env.example .env
-```
-
-### Configuration
-
-1. **Edit `.env`** with your bot token:
-```bash
-DISCORD_BOT_TOKEN=your_emoji_choice_bot_token
-```
-
-2. **Edit `config.py`** with your IDs:
-```python
-OPENCLAW_BOT_ID = 1234567890123456789  # Your OpenClaw bot
-WATCHED_CHANNELS = [1234567890123456789]  # Channels to monitor
-```
-
-3. **Discord Developer Portal** → Bot → Enable:
-   - ✅ Presence Intent
-   - ✅ Server Members Intent
+1. Discord Developer Portal에서 봇의 **Privileged Gateway Intents** 활성화:
    - ✅ Message Content Intent
+   - ✅ Server Members Intent
 
-4. **OpenClaw config** (`~/.openclaw/openclaw.json`):
-```json
-{
-  "channels": {
-    "discord": {
-      "allowBots": true,
-      "guilds": {
-        "<guild_id>": {
-          "channels": {
-            "<channel_id>": {
-              "allow": true,
-              "users": ["<your_id>", "<emoji_choice_bot_id>"]
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
+2. `.env` 파일에 토큰 설정 (이미 설정됨)
 
-### Run
+## 실행
 
 ```bash
+cd ~/.openclaw/workspace/bots/noti-bot
+pip install -r requirements.txt
 python bot.py
 ```
 
-Background mode:
+## 백그라운드 실행
+
 ```bash
-nohup python bot.py > bot.log 2>&1 &
+# tmux 사용
+tmux new-session -d -s noti-bot "cd ~/.openclaw/workspace/bots/noti-bot && python bot.py"
+
+# 또는 nohup
+nohup python bot.py > noti-bot.log 2>&1 &
 ```
 
-## 📋 Emoji Mapping
+## 동작 방식
 
-| Emoji | Selection | Use Case |
-|-------|-----------|----------|
-| 1️⃣~9️⃣ | 1~9 | Multiple choice |
-| 0️⃣ | 10 | Multiple choice |
-| ✅ | yes | Approve/Confirm |
-| ❌ | no | Reject/Cancel |
-
-## 🔄 Example Workflow
-
-```
-[OpenClaw]
-Choose a recipe:
-1️⃣ Kimchi Stew
-2️⃣ Soybean Paste Stew
-3️⃣ Tofu Stew
-
-[User clicks 2️⃣]
-
-[Emoji Choice]
-@OpenClaw [Selection] user selected option 2.
-
-[OpenClaw]
-You chose Soybean Paste Stew! Starting...
-```
-
-## 📁 Files
-
-```
-emoji-choice/
-├── bot.py              # Main bot
-├── config.py           # Configuration
-├── requirements.txt    # Dependencies
-├── .env.example        # Environment template
-├── .gitignore
-├── README.md           # English docs
-└── README.ko.md        # Korean docs
-```
-
-## ⚠️ Notes
-
-- **Separate token required**: Use a different bot token from OpenClaw
-- **Single instance**: Run only one instance to avoid duplicates
-- **OpenClaw messages only**: Only reacts to emoji on OpenClaw's messages
-
-## 📝 License
-
-MIT License
-
----
-
-[한국어 문서](README.ko.md)
+1. OpenClaw 봇이 이모지 선택 메시지 전송
+2. 유저가 이모지 클릭
+3. Noti-Bot이 reaction 감지
+4. Noti-Bot이 "[선택] N번을 선택했습니다" 메시지 전송
+5. OpenClaw가 이 메시지를 보고 해당 선택 처리
