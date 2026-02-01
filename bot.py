@@ -32,6 +32,9 @@ OPENCLAW_BOT_ID = 1466835811201712289
 # 감시할 채널 ID
 WATCHED_CHANNELS = [
     1466837864502526066,  # #openclaw
+    1467444367148060718,  # #twitter-choice (트위터)
+    1467484477461889024,  # #recipe-choice (레시피)
+    1467485025988513833,  # #misc-choice (기타/자가발전)
 ]
 
 # 이모지 → 선택 매핑
@@ -134,9 +137,35 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         except:
             user_name = str(payload.user_id)
         
+        # 원본 메시지에서 의미있는 내용 추출
+        msg_preview = ""
+        try:
+            lines = message.content.split('\n')
+            # 의미없는 줄 스킵 (---, ```, 빈 줄, 이모지만 있는 줄)
+            meaningful_line = ""
+            for line in lines:
+                line = line.strip()
+                # 스킵할 패턴들
+                if not line:
+                    continue
+                if line.startswith('---'):
+                    continue
+                if line.startswith('```'):
+                    continue
+                if line in ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '🔥', '❌', '✅']:
+                    continue
+                # 의미있는 줄 발견
+                meaningful_line = line[:80]
+                break
+            
+            if meaningful_line:
+                msg_preview = f"\n📝 원본: {meaningful_line}"
+        except:
+            pass
+        
         # 메시지 전송 (OpenClaw가 이걸 보고 반응)
         # OpenClaw 봇을 멘션해서 턴 트리거
-        forward_msg = f"<@{OPENCLAW_BOT_ID}> [선택] {user_name}님이 {selection[1]}을 선택했습니다."
+        forward_msg = f"<@{OPENCLAW_BOT_ID}> [선택] {user_name}님이 {selection[1]}을 선택했습니다.{msg_preview}"
         await channel.send(forward_msg)
         
         logger.info(f"✅ 전달 완료: {forward_msg}")
