@@ -165,6 +165,8 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
                         if content.startswith('**'): content = content[2:]
                         if '**' in content: content = content.split('**')[0].strip()
                         if content.startswith(':') or content.startswith('-'): content = content[1:].strip()
+                        # 파이프(|) 이후 내용 제거 (예: "전체 | ❌ 안올림" → "전체")
+                        if '|' in content: content = content.split('|')[0].strip()
                         found_content = content[:100]
                         break
                 if found_content: break
