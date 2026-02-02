@@ -10,18 +10,18 @@ Usage:
 """
 
 import os
-import logging
+import sys
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from pathlib import Path
+
+# 로컬 유틸리티 사용 (리포지토리 내부)
+from utils.logger import get_logger
+
+logger = get_logger("noti-bot")
 
 load_dotenv()
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
-logger = logging.getLogger(__name__)
 
 # 설정
 DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")
@@ -82,16 +82,14 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     global BOT_ID
     
     # 모든 reaction 로깅 (디버그)
-    logger.info(f"🔔 [DEBUG] Reaction 수신: {payload.emoji} by {payload.user_id} on msg {payload.message_id}")
+    # logger.debug(f"🔔 [DEBUG] Reaction 수신: {payload.emoji} by {payload.user_id} on msg {payload.message_id}")
     
     # 자기 자신의 reaction은 무시
     if payload.user_id == BOT_ID:
-        logger.info(f"   ⏭️ 자기 자신의 reaction, 무시")
         return
     
     # OpenClaw 봇의 reaction도 무시 (초기 이모지 추가)
     if payload.user_id == OPENCLAW_BOT_ID:
-        logger.info(f"   ⏭️ OpenClaw 봇의 reaction, 무시")
         return
     
     # 감시 채널 필터링
@@ -137,35 +135,54 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         except:
             user_name = str(payload.user_id)
         
-        # 원본 메시지에서 의미있는 내용 추출
-        msg_preview = ""
+        # 선택된 옵션에 해당하는 내용 추출
+        action_desc = ""
         try:
             lines = message.content.split('\n')
-            # 의미없는 줄 스킵 (---, ```, 빈 줄, 이모지만 있는 줄)
-            meaningful_line = ""
-            for line in lines:
-                line = line.strip()
-                # 스킵할 패턴들
-                if not line:
-                    continue
-                if line.startswith('---'):
-                    continue
-                if line.startswith('```'):
-                    continue
-                if line in ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '🔥', '❌', '✅']:
-                    continue
-                # 의미있는 줄 발견
-                meaningful_line = line[:80]
-                break
+            selected_num = selection[0]  # '1', '2', 'all', 'yes', 'no' 등
             
-            if meaningful_line:
-                msg_preview = f"\n📝 원본: {meaningful_line}"
-        except:
-            pass
+            # 숫자 이모지 매핑
+            number_emojis = {
+                '1': ['1️⃣', '1⃣'], '2': ['2️⃣', '2⃣'], '3': ['3️⃣', '3⃣'],
+                '4': ['4️⃣', '4⃣'], '5': ['5️⃣', '5⃣'], '6': ['6️⃣', '6⃣'],
+                '7': ['7️⃣', '7⃣'], '8': ['8️⃣', '8⃣'], '9': ['9️⃣', '9⃣'],
+                '10': ['0️⃣', '0⃣']
+            }
+            special_emojis = {'all': ['🔥'], 'yes': ['✅'], 'no': ['❌']}
+            
+            search_emojis = []
+            if selected_num in number_emojis:
+                search_emojis = number_emojis[selected_num]
+            elif selected_num in special_emojis:
+                search_emojis = special_emojis[selected_num]
+            
+            found_content = None
+            for line in lines:
+                line_stripped = line.strip()
+                for emoji in search_emojis:
+                    if line_stripped.startswith(emoji):
+                        content = line_stripped[len(emoji):].strip()
+                        if content.startswith('**'): content = content[2:]
+                        if '**' in content: content = content.split('**')[0].strip()
+                        if content.startswith(':') or content.startswith('-'): content = content[1:].strip()
+                        found_content = content[:100]
+                        break
+                if found_content: break
+            
+            if found_content:
+                action_desc = f"\n📋 행위: {selection[1]} 옵션 - {found_content}"
+            else:
+                if selected_num == 'all': action_desc = "\n📋 행위: 🔥 모두 수행 (큐잉)"
+                elif selected_num == 'yes': action_desc = "\n📋 행위: ✅ 승인"
+                elif selected_num == 'no': action_desc = "\n📋 행위: ❌ 거절"
+                else: action_desc = f"\n📋 행위: {selection[1]} 옵션 선택"
+            
+        except Exception as e:
+            logger.warning(f"옵션 내용 추출 실패: {e}")
+            action_desc = f"\n📋 행위: {selection[1]} 선택"
         
-        # 메시지 전송 (OpenClaw가 이걸 보고 반응)
-        # OpenClaw 봇을 멘션해서 턴 트리거
-        forward_msg = f"<@{OPENCLAW_BOT_ID}> [선택] {user_name}님이 {selection[1]}을 선택했습니다.{msg_preview}"
+        # 메시지 전송
+        forward_msg = f"<@{OPENCLAW_BOT_ID}> [선택] {user_name}님이 {selection[1]}을 선택했습니다.{action_desc}"
         await channel.send(forward_msg)
         
         logger.info(f"✅ 전달 완료: {forward_msg}")
